@@ -479,6 +479,10 @@ if __name__ == '__main__':
             db.session.rollback()
             db.create_all()
             
+    if os.environ.get("RAILWAY_ENVIRONMENT"):
+    if os.environ.get("RUN_WORKERS", "true") == "true":
+        start_workers()
+else:
     start_workers()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
