@@ -455,34 +455,42 @@ def agent_report():
     return render_template('agent_report.html', pagination=pagination)
 
 # -------------------------------------------------------------------------
-# Dynamic Schema Alteration & Bootstrapping
+# Railway Bootstrap
 # -------------------------------------------------------------------------
-if __name__ == '__main__':
-    with app.app_context():
+
+with app.app_context():
+    db.create_all()
+
+    # Safe migration patch check for allocated_agent_id
+    try:
+        db.session.execute(
+            db.text("SELECT allocated_agent_id FROM sms_number LIMIT 1")
+        )
+    except Exception:
+        db.session.rollback()
+
+    # Safe migration patch check for allocated_client_id
+    try:
+        db.session.execute(
+            db.text("SELECT allocated_client_id FROM sms_number LIMIT 1")
+        )
+    except Exception:
+        db.session.rollback()
+
+    # Safe migration patch check for client_user table
+    try:
+        db.session.execute(
+            db.text("SELECT id FROM client_user LIMIT 1")
+        )
+    except Exception:
+        db.session.rollback()
         db.create_all()
-        # Safe migration patch check for allocated_agent_id
-        try: db.session.execute(db.text("SELECT allocated_agent_id FROM sms_number LIMIT 1"))
-        except Exception:
-            db.session.rollback()
-            db.session.execute(db.text("ALTER TABLE sms_number ADD COLUMN allocated_agent_id INTEGER REFERENCES agent_user(id)"))
-            db.session.commit()
-            
-        # Safe migration patch check for allocated_client_id 
-        try: db.session.execute(db.text("SELECT allocated_client_id FROM sms_number LIMIT 1"))
-        except Exception:
-            db.session.rollback()
-            db.session.execute(db.text("ALTER TABLE sms_number ADD COLUMN allocated_client_id INTEGER REFERENCES client_user(id)"))
-            db.session.commit()
-            
-        try: db.session.execute(db.text("SELECT id FROM client_user LIMIT 1"))
-        except Exception:
-            db.session.rollback()
-            db.create_all()
-            
-    if os.environ.get("RAILWAY_ENVIRONMENT"):
-    if os.environ.get("RUN_WORKERS", "true") == "true":
-        start_workers()
-else:
+
+# Start background workers
+if os.environ.get("RUN_WORKERS", "true").lower() == "true":
     start_workers()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+
+# Local development only
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)
