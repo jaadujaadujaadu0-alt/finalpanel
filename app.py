@@ -11,7 +11,18 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.secret_key = "super-secret-session-key-change-this"
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgres://",
+        "postgresql://",
+        1
+    )
+
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    DATABASE_URL or "sqlite:///database.db"
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -621,25 +632,40 @@ def agent_report():
 # -------------------------------------------------------------------------
 # Dynamic Schema Alteration & Bootstrapping
 # -------------------------------------------------------------------------
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        
-        columns_to_check = [
-            ("created_at", "DATETIME"),
-            ("scudo_name", "TEXT"),
-            ("allocated_agent_id", "INTEGER REFERENCES agent_user(id)"),
-            ("allocated_client_id", "INTEGER REFERENCES client_user(id)")
-        ]
-        
-        for col_name, col_type in columns_to_check:
+# -------------------------------------------------------------------------
+# Railway Bootstrap
+# -------------------------------------------------------------------------
+
+with app.app_context():
+    db.create_all()
+
+    columns_to_check = [
+        ("created_at", "DATETIME"),
+        ("scudo_name", "TEXT"),
+        ("allocated_agent_id", "INTEGER REFERENCES agent_user(id)"),
+        ("allocated_client_id", "INTEGER REFERENCES client_user(id)")
+    ]
+
+    for col_name, col_type in columns_to_check:
+        try:
+            db.session.execute(
+                db.text(f"SELECT {col_name} FROM sms_number LIMIT 1")
+            )
+        except Exception:
+            db.session.rollback()
             try:
-                db.session.execute(db.text(f"SELECT {col_name} FROM sms_number LIMIT 1"))
+                db.session.execute(
+                    db.text(
+                        f"ALTER TABLE sms_number ADD COLUMN {col_name} {col_type}"
+                    )
+                )
+                db.session.commit()
             except Exception:
                 db.session.rollback()
-                db.session.execute(db.text(f"ALTER TABLE sms_number ADD COLUMN {col_name} {col_type}"))
-                db.session.commit()
-                print(f"[Migration] Successfully added missing column: {col_name}")
 
+if os.environ.get("RUN_WORKERS", "true").lower() == "true":
     start_workers()
-    app.run(host='0.0.0.0', port=5000, debug=False)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)
