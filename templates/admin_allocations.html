@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aura - Agent Allocations Tracker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { margin: 0; padding: 0; background-color: #f1f1f1; display: flex; height: 100vh; overflow: hidden; }
+
+        /* Sidebar Styling */
+        .sidebar { width: 240px; background-color: #e9e9e9; border-right: 1px solid #ccc; display: flex; flex-direction: column; height: 100%; flex-shrink: 0; }
+        .sidebar-header { padding: 15px; text-align: center; color: #333; font-size: 13px; line-height: 1.5; border-bottom: 1px solid #d0d0d0; background: #e0e0e0; }
+        .sidebar-header strong { color: #000; display: block; font-size: 14px; }
+        .menu-list { list-style: none; padding: 0; margin: 0; width: 100%; }
+        .menu-item a { display: flex; align-items: center; padding: 12px 15px; text-decoration: none; color: white; font-weight: bold; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #000; background: linear-gradient(to bottom, #3c3c3c 0%, #111111 100%); position: relative; }
+        .menu-item a:hover, .menu-item.active a { background: linear-gradient(to bottom, #555555 0%, #222222 100%); color: #fff; }
+        .menu-item a i { margin-right: 10px; font-size: 16px; width: 20px; text-align: center; color: #b5b5b5; }
+        .menu-item a .arrow { position: absolute; right: 15px; font-size: 10px; color: #888; }
+        
+        .main-container { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-navbar { height: 50px; background: linear-gradient(to bottom, #2b2b2b 0%, #111111 100%); display: flex; align-items: center; padding: 0 20px; }
+        .logo-text { font-size: 28px; font-weight: bold; font-style: italic; background: linear-gradient(to bottom, #4fa3ff, #9b51e0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .content { padding: 20px; overflow-y: auto; flex-grow: 1; }
+        .panel-card { background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .panel-header { background: linear-gradient(to bottom, #eaeaea 0%, #dcdcdc 100%); padding: 12px 15px; border-bottom: 1px solid #ccc; font-weight: bold; color: #333; display: flex; align-items: center; font-size: 14px; text-transform: uppercase; }
+        .panel-header i { margin-right: 8px; color: #555; }
+        .panel-body { padding: 15px; }
+
+        /* Search Section Header Elements */
+        .search-box-form { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        .btn-search { background: linear-gradient(to bottom, #4fa3ff, #0056b3); color: white; border: none; padding: 0 25px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        
+        .search-result-alert { padding: 15px; background-color: #e2f0fe; border-left: 5px solid #0056b3; border-radius: 4px; font-size: 14px; margin-bottom: 15px; }
+
+        /* Accordion List Structuring views */
+        .agent-row-item { border-bottom: 1px solid #ddd; padding: 12px; display: flex; justify-content: space-between; align-items: center; background-color: #fff; }
+        .agent-name { font-size: 14px; font-weight: bold; color: #222; }
+        
+        .btn-track { background: linear-gradient(to bottom, #f7f7f7 0%, #e0e0e0 100%); border: 1px solid #ccc; color: #333; padding: 6px 14px; font-size: 12px; font-weight: bold; border-radius: 3px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .btn-track:hover { background: linear-gradient(to bottom, #e0e0e0 0%, #d0d0d0 100%); }
+
+        /* Dropdown popdown styling hooks */
+        .ranges-dropdown-block { display: none; background-color: #fcfcfc; border-bottom: 1px solid #ccc; padding: 10px 20px; }
+        
+        .range-pill-container { display: flex; justify-content: space-between; align-items: center; background-color: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 8px 15px; margin-bottom: 5px; cursor: pointer; font-size: 13px; }
+        .range-pill-container:hover { background-color: #e6e6e6; }
+        .badge-count { background-color: #333; color: white; font-weight: bold; font-size: 11px; padding: 3px 8px; border-radius: 10px; }
+
+        .numbers-popdown-list { display: none; padding: 10px 15px; background-color: #fff; border: 1px solid #eee; margin-bottom: 8px; border-radius: 4px; }
+        .numbers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+        .phone-node { font-family: monospace; font-size: 12px; background: #f8f9fa; border: 1px solid #e3e3e3; padding: 4px 8px; border-radius: 3px; text-align: center; color: #444; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            Welcome <strong>{{ session['username'] }} (Admin)</strong>
+            Agent Panel<br>
+            <span id="live-clock">--:--:--</span>
+        </div>
+                        <ul class="menu-list">
+            <li class="menu-item"><a href="{{ url_for('admin_payouts') }}"><i class="fa-solid fa-money-check-dollar"></i> Payout Management</a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_dashboard') }}"><i class="fa-solid fa-gauge"></i> Dashboard <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('agents_management') }}"><i class="fa-solid fa-users-gear"></i> Agents Manager <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_allocations') }}"><i class="fa-solid fa-network-wired"></i> Agent Allocations <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_stats') }}"><i class="fa-solid fa-chart-simple"></i> Agent Stats <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_scudo_ranges') }}"><i class="fa-solid fa-mask"></i> Scudo Ranges <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('numbers_view') }}"><i class="fa-solid fa-phone"></i> Number Storage <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('otps_view') }}"><i class="fa-solid fa-envelope-open-text"></i> OTP SMS Storage <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <div class="menu-item"><a href="{{ url_for('admin_payouts') }}"><i class="fa-solid fa-money-check-dollar"></i> Payout Management</a></div>
+            <li class="menu-item" style="margin-top: 20px;"><a href="{{ url_for('logout') }}" style="background: linear-gradient(to bottom, #9b2226, #bb3e03);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+        </ul>
+    </div>
+
+    <div class="main-container">
+        <div class="top-navbar"><div class="logo-text">Aura</div></div>
+        
+        <div class="content">
+            
+            <div class="panel-card">
+                <div class="panel-header"><i class="fa-solid fa-magnifying-glass"></i> Search Number Location Status</div>
+                <div class="panel-body">
+                    <form method="GET" class="search-box-form">
+                        <input type="text" name="search_number" value="{{ search_query or '' }}" class="search-input" placeholder="Enter target phone number (e.g. +3519xxxxxxx)..." required autocomplete="off">
+                        <button type="submit" class="btn-search">Search Line</button>
+                    </form>
+
+                    {% if search_result %}
+                        <div class="search-result-alert">
+                            <i class="fa-solid fa-circle-info"></i> Query: <strong>{{ search_result.phone_number }}</strong> &mdash; 
+                            Status Indicator: <code style="font-size: 14px; background:#fff; padding:2px 6px; border:1px solid #ccc; border-radius:3px;">{{ search_result.status }}</code>
+                            {% if search_result.num_range %} | Range Class: <strong>{{ search_result.num_range }}</strong>{% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-header"><i class="fa-solid fa-boxes-stacked"></i> Agent Allocation Breakdown Storage</div>
+                <div class="panel-body" style="padding: 0;">
+                    
+                    {% for agent in agents %}
+                        <div class="agent-row-item">
+                            <span class="agent-name"><i class="fa-solid fa-user-tie" style="color:#666; margin-right:5px;"></i> {{ agent.username }} (ID: {{ agent.id }})</span>
+                            <button class="btn-track" onclick="toggleRangesBlock('ranges-agent-{{ agent.id }}')">
+                                <i class="fa-solid fa-eye"></i> Track
+                            </button>
+                        </div>
+                        
+                        <div class="ranges-dropdown-block" id="ranges-agent-{{ agent.id }}">
+                            {% if agent.ranges %}
+                                {% for range_name, phones in agent.ranges.items() %}
+                                    <div class="range-pill-container" onclick="toggleNumbersBlock('nums-agent-{{ agent.id }}-range-{{ loop.index }}')">
+                                        <span><i class="fa-solid fa-folder-tree" style="color:#888; margin-right:5px;"></i> Range Block: <strong>{{ range_name }}</strong></span>
+                                        <span class="badge-count">{{ phones|length }} Numbers Assigned</span>
+                                    </div>
+                                    
+                                    <div class="numbers-popdown-list" id="nums-agent-{{ agent.id }}-range-{{ loop.index }}">
+                                        <div class="numbers-grid">
+                                            {% for phone in phones %}
+                                                <div class="phone-node"><i class="fa-solid fa-mobile-screen-button" style="font-size:10px; color:#aaa; margin-right:3px;"></i> {{ phone }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div style="font-size: 13px; color: #999; text-align: center; padding: 10px 0;">This agent has no allocated line ranges currently active.</div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div style="padding: 20px; text-align: center; color: #888;">No active system agents found.</div>
+                    {% endfor %}
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function toggleRangesBlock(id) {
+            const block = document.getElementById(id);
+            if (block.style.display === "block") {
+                block.style.display = "none";
+            } else {
+                block.style.display = "block";
+            }
+        }
+
+        function toggleNumbersBlock(id) {
+            const block = document.getElementById(id);
+            if (block.style.display === "block") {
+                block.style.display = "none";
+            } else {
+                block.style.display = "block";
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            document.getElementById('live-clock').innerText = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        }
+        setInterval(updateClock, 1000); 
+        updateClock();
+    </script>
+</body>
+</html>

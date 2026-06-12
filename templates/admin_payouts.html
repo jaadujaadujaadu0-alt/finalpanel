@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aura - Payout Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { margin: 0; padding: 0; background-color: #f1f1f1; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar Navigation Controls */
+        .sidebar { width: 240px; background-color: #e9e9e9; border-right: 1px solid #ccc; display: flex; flex-direction: column; height: 100%; flex-shrink: 0; }
+        .sidebar-header { padding: 15px; text-align: center; color: #333; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #d0d0d0; background: #e0e0e0; }
+        .sidebar-header strong { color: #000; display: block; font-size: 14px; margin-top: 2px; }
+        .menu-list { list-style: none; padding: 0; margin: 0; width: 100%; overflow-y: auto; flex-grow: 1; }
+        .menu-item a { display: flex; align-items: center; padding: 12px 15px; text-decoration: none; color: white; font-weight: bold; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #000; background: linear-gradient(to bottom, #3c3c3c 0%, #111111 100%); position: relative; }
+        .menu-item a:hover, .menu-item.active a { background: linear-gradient(to bottom, #555555 0%, #222222 100%); color: #fff; }
+        .menu-item a i.main-icon { margin-right: 10px; font-size: 14px; width: 20px; text-align: center; color: #b5b5b5; }
+        .menu-item a i.arrow-icon { margin-left: auto; font-size: 10px; color: #888; }
+        
+        /* Master Content Framing */
+        .main-container { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-navbar { height: 50px; background: linear-gradient(to bottom, #2b2b2b 0%, #111111 100%); display: flex; align-items: center; padding: 0 20px; flex-shrink: 0; }
+        .logo-text { font-size: 28px; font-weight: bold; font-style: italic; background: linear-gradient(to bottom, #4fa3ff, #9b51e0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .content { padding: 20px; overflow-y: auto; flex-grow: 1; }
+        
+        /* Structural Panels & Cards */
+        .panel-card { background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 25px; }
+        .panel-header { background: linear-gradient(to bottom, #eaeaea 0%, #dcdcdc 100%); padding: 12px 15px; border-bottom: 1px solid #ccc; font-weight: bold; color: #333; display: flex; align-items: center; font-size: 13px; text-transform: uppercase; }
+        .panel-header i { margin-right: 8px; color: #555; }
+        .panel-body { padding: 15px; }
+        
+        /* Responsive Table Wrapper for Horizontal Viewports */
+        .table-responsive { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 4px; background: #fff; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; color: #333; min-width: 800px; }
+        th { background-color: #f5f5f5; border-bottom: 2px solid #ddd; padding: 11px 12px; font-weight: bold; text-align: left; white-space: nowrap; }
+        td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: middle; white-space: nowrap; }
+        tr:nth-child(even) td { background-color: #fafafa; }
+        
+        /* Address Word Break Protection Rules */
+        td.address-col { max-width: 220px; white-space: normal; word-break: break-all; font-family: monospace; }
+        td code { font-family: monospace; background: #f4f4f4; padding: 2px 5px; border-radius: 3px; color: #444; font-size: 12px; }
+        
+        /* Interactive Layout Action Controls */
+        .btn-action { border: 1px solid transparent; padding: 6px 14px; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 11px; text-transform: uppercase; color: white; margin-right: 4px; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-approve { background: linear-gradient(to bottom, #2ea44f 0%, #227d3c 100%); border-color: #1a612e; }
+        .btn-approve:hover { background: linear-gradient(to bottom, #34bc5a 0%, #1a612e 100%); }
+        .btn-reject { background: linear-gradient(to bottom, #da373c 0%, #a92327 100%); border-color: #831b1e; }
+        .btn-reject:hover { background: linear-gradient(to bottom, #f0474c 0%, #831b1e 100%); }
+        
+        /* Identity Status Accents */
+        .status-Pending { background-color: #fef3c7; color: #d97706; padding: 3px 9px; border-radius: 12px; font-weight: bold; font-size: 11px; text-transform: uppercase; border: 1px solid #fcd34d; }
+        .status-Approved { background-color: #d1fae5; color: #059669; padding: 3px 9px; border-radius: 12px; font-weight: bold; font-size: 11px; text-transform: uppercase; border: 1px solid #6ee7b7; }
+        .status-Rejected { background-color: #fee2e2; color: #dc2626; padding: 3px 9px; border-radius: 12px; font-weight: bold; font-size: 11px; text-transform: uppercase; border: 1px solid #fca5a5; }
+        .flash { padding: 12px; margin-bottom: 15px; border-radius: 4px; background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: bold; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            Welcome<br>
+            <strong>aura20 (Admin)</strong>
+            <span style="color: #666; font-size: 11px; display: block; margin-top: 2px;">Agent Panel</span>
+            <div id="sidebar-clock" style="font-size: 11px; color: #333; margin-top: 6px; font-weight: bold; background: #d5d5d5; padding: 2px; border-radius: 3px;"></div>
+        </div>
+        <ul class="menu-list">
+            <li class="menu-item"><a href="{{ url_for('admin_dashboard') }}"><i class="fa-solid fa-gauge main-icon"></i> Dashboard <i class="fa-solid fa-chevron-down arrow-icon"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('agents_management') }}"><i class="fa-solid fa-users main-icon"></i> Agents Manager <i class="fa-solid fa-chevron-down arrow-icon"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_allocations') }}"><i class="fa-solid fa-sitemap main-icon"></i> Agent Allocations <i class="fa-solid fa-chevron-down arrow-icon"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_stats') }}"><i class="fa-solid fa-chart-bar main-icon"></i> Agent Stats <i class="fa-solid fa-chevron-down arrow-icon"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_scudo_ranges') }}"><i class="fa-solid fa-eye main-icon"></i> Scudo Ranges <i class="fa-solid fa-chevron-down arrow-icon"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('numbers_view') }}"><i class="fa-solid fa-phone main-icon"></i> Number Storage <i class="fa-solid fa-chevron-down arrow-icon"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('otps_view') }}"><i class="fa-solid fa-envelope main-icon"></i> OTP SMS Storage <i class="fa-solid fa-chevron-down arrow-icon"></i></a></li>
+            <li class="menu-item active"><a href="{{ url_for('admin_payouts') }}"><i class="fa-solid fa-money-check-dollar main-icon"></i> Payout Management</a></li>
+            <li class="menu-item" style="margin-top: 15px;"><a href="{{ url_for('logout') }}" style="background: linear-gradient(to bottom, #9b2226, #bb3e03); border-bottom: none;"><i class="fa-solid fa-right-from-bracket main-icon"></i> Logout</a></li>
+        </ul>
+    </div>
+    
+    <div class="main-container">
+        <div class="top-navbar"><div class="logo-text">Aura</div></div>
+        <div class="content">
+            
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for msg in messages %}
+                        <div class="flash"><i class="fa-solid fa-circle-info"></i> {{ msg }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="panel-card">
+                <div class="panel-header"><i class="fa-solid fa-hourglass-half"></i> Pending Payout Queue</div>
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 10%;">Transaction ID</th>
+                                    <th style="width: 15%;">Agent Identity</th>
+                                    <th style="width: 15%;">Requested Amount</th>
+                                    <th style="width: 30%;">Token Wallet Address</th>
+                                    <th style="width: 15%;">Submission Date</th>
+                                    <th style="width: 15%;">Management Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payout in pending %}
+                                <tr>
+                                    <td><code>#{{ payout.id }}</code></td>
+                                    <td><strong>{{ payout.agent.username }}</strong></td>
+                                    <td><strong style="color: #111;">${{ "%.2f"|format(payout.amount) }}</strong></td>
+                                    <td class="address-col"><code>{{ payout.wallet_address }}</code></td>
+                                    <td>{{ payout.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <form action="{{ url_for('admin_payout_action', payout_id=payout.id, action='approve') }}" method="POST" style="display:inline;">
+                                            <button type="submit" class="btn-action btn-approve" onclick="return confirm('Confirm blockchain payment authorization?')"><i class="fa-solid fa-check"></i> Approve</button>
+                                        </form>
+                                        <form action="{{ url_for('admin_payout_action', payout_id=payout.id, action='reject') }}" method="POST" style="display:inline;">
+                                            <button type="submit" class="btn-action btn-reject" onclick="return confirm('Reject this payout file?')"><i class="fa-solid fa-xmark"></i> Reject</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: #999; padding: 25px;">No pending execution tasks found in queue.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-header"><i class="fa-solid fa-box-archive"></i> Settled History Ledger</div>
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 10%;">Transaction ID</th>
+                                    <th style="width: 20%;">Agent Identity</th>
+                                    <th style="width: 15%;">Processed Amount</th>
+                                    <th style="width: 35%;">Token Wallet Address</th>
+                                    <th style="width: 10%;">Resolution Timestamp</th>
+                                    <th style="width: 10%;">Status State</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payout in processed %}
+                                <tr>
+                                    <td><code>#{{ payout.id }}</code></td>
+                                    <td>{{ payout.agent.username }}</td>
+                                    <td><strong>${{ "%.2f"|format(payout.amount) }}</strong></td>
+                                    <td class="address-col"><code>{{ payout.wallet_address }}</code></td>
+                                    <td>{{ payout.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td><span class="status-{{ payout.status }}">{{ payout.status }}</span></td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: #999; padding: 25px;">Historical ledger archive database is empty.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        function updateSidebarClock() {
+            const now = new Date(); const pad = (n) => String(n).padStart(2, '0');
+            const clockEl = document.getElementById('sidebar-clock');
+            if (clockEl) {
+                clockEl.innerText = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+            }
+        }
+        setInterval(updateSidebarClock, 1000); updateSidebarClock();
+    </script>
+</body>
+</html>

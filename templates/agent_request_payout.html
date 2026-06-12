@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aura - Request Payout</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { margin: 0; padding: 0; background-color: #f1f1f1; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 240px; background-color: #e9e9e9; border-right: 1px solid #ccc; display: flex; flex-direction: column; height: 100%; flex-shrink: 0; }
+        .sidebar-header { padding: 15px; text-align: center; color: #333; font-size: 13px; line-height: 1.5; border-bottom: 1px solid #d0d0d0; background: #e0e0e0; }
+        .sidebar-header strong { color: #000; display: block; font-size: 14px; }
+        .menu-list { list-style: none; padding: 0; margin: 0; width: 100%; }
+        .menu-item a { display: flex; align-items: center; padding: 12px 15px; text-decoration: none; color: white; font-weight: bold; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #000; background: linear-gradient(to bottom, #3c3c3c 0%, #111111 100%); position: relative; }
+        .menu-item a:hover, .menu-item.active a { background: linear-gradient(to bottom, #555555 0%, #222222 100%); color: #fff; }
+        .menu-item a i { margin-right: 10px; font-size: 16px; width: 20px; text-align: center; color: #b5b5b5; }
+        .main-container { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-navbar { height: 50px; background: linear-gradient(to bottom, #2b2b2b 0%, #111111 100%); display: flex; align-items: center; padding: 0 20px; }
+        .logo-text { font-size: 28px; font-weight: bold; font-style: italic; background: linear-gradient(to bottom, #4fa3ff, #9b51e0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .content { padding: 20px; overflow-y: auto; flex-grow: 1; }
+        
+        /* New Payout UI elements matched to workspace styles */
+        .panel-card { background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 25px; }
+        .panel-header { background: linear-gradient(to bottom, #eaeaea 0%, #dcdcdc 100%); padding: 12px 15px; border-bottom: 1px solid #ccc; font-weight: bold; color: #333; display: flex; align-items: center; font-size: 14px; text-transform: uppercase; }
+        .panel-header i { margin-right: 8px; color: #555; }
+        .panel-body { padding: 15px; }
+        
+        .form-group { margin-bottom: 15px; max-width: 500px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 13px; text-transform: uppercase; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        input[readonly] { background-color: #f0f0f0; cursor: not-allowed; color: #666; font-weight: bold; }
+        
+        .btn-submit { background: linear-gradient(to bottom, #4fa3ff 0%, #0056b3 100%); color: white; border: 1px solid #004085; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+        .btn-submit:hover { background: linear-gradient(to bottom, #61b0ff 0%, #004085 100%); }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 13px; color: #333; }
+        th { background-color: #f5f5f5; border-bottom: 2px solid #ddd; padding: 10px; font-weight: bold; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        tr:nth-child(even) td { background-color: #fafafa; }
+        
+        .status-Pending { background-color: #fef3c7; color: #d97706; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; text-transform: uppercase; border: 1px solid #fcd34d; }
+        .status-Approved { background-color: #d1fae5; color: #059669; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; text-transform: uppercase; border: 1px solid #6ee7b7; }
+        .status-Rejected { background-color: #fee2e2; color: #dc2626; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; text-transform: uppercase; border: 1px solid #fca5a5; }
+        .flash { padding: 12px; margin-bottom: 15px; border-radius: 4px; background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; font-weight: bold; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            Welcome <strong>{{ session['username'] }}</strong><br>
+            <span>Agent Workstation</span>
+        </div>
+                <ul class="menu-list">
+            <li class="menu-item"><a href="{{ url_for('agent_request_payout') }}"><i class="fa-solid fa-wallet"></i> Request Payout</a></li>
+            <li class="menu-item active"><a href="{{ url_for('agent_report') }}"><i class="fa-solid fa-file-invoice mr-2"></i> Report</a></li>
+            <li class="menu-item"><a href="{{ url_for('agent_allocate') }}"><i class="fa-solid fa-layer-group"></i> Number Allocation</a></li>
+            <li class="menu-item"><a href="{{ url_for('agent_my_numbers') }}"><i class="fa-solid fa-list-check"></i> My Numbers</a></li>
+            <li class="menu-item"><a href="{{ url_for('agent_clients') }}"><i class="fa-solid fa-user-group"></i> Clients</a></li>
+            <li class="menu-item" style="margin-top: 20px;"><a href="{{ url_for('logout') }}" style="background: linear-gradient(to bottom, #9b2226, #bb3e03);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+        </ul>
+    </div>
+    
+    <div class="main-container">
+        <div class="top-navbar"><div class="logo-text">Aura</div></div>
+        <div class="content">
+            
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for msg in messages %}
+                        <div class="flash"><i class="fa-solid fa-circle-check"></i> {{ msg }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="panel-card">
+                <div class="panel-header"><i class="fa-solid fa-money-bill-transfer"></i> Setup Payout Request</div>
+                <div class="panel-body">
+                    <form action="{{ url_for('agent_submit_payout') }}" method="POST">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" value="{{ username }}" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Payout Amount ($)</label>
+                            <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Destination Wallet Address</label>
+                            <input type="text" name="wallet_address" placeholder="Enter TRC20 / ERC20 Destination Token Address" required>
+                        </div>
+                        <button type="submit" class="btn-submit"><i class="fa-solid fa-paper-plane"></i> Submit Request</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-header"><i class="fa-solid fa-clock-rotate-left"></i> Historical Payout Ledger</div>
+                <div class="panel-body">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Requested Amount</th>
+                                <th>Wallet Address Destination</th>
+                                <th>Status Conditions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payout in history %}
+                            <tr>
+                                <td><code>{{ payout.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</code></td>
+                                <td><strong>${{ "%.2f"|format(payout.amount) }}</strong></td>
+                                <td><code>{{ payout.wallet_address }}</code></td>
+                                <td><span class="status-{{ payout.status }}">{{ payout.status }}</span></td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: #999; padding: 20px;">No transaction records found on this account.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</body>
+</html>

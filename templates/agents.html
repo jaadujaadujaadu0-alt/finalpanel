@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aura - Manage Agents</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { margin: 0; padding: 0; background-color: #f1f1f1; display: flex; height: 100vh; overflow: hidden; }
+
+        /* Left Sidebar Matching Screens */
+        .sidebar { width: 240px; background-color: #e9e9e9; border-right: 1px solid #ccc; display: flex; flex-direction: column; height: 100%; flex-shrink: 0; }
+        .sidebar-header { padding: 15px; text-align: center; color: #333; font-size: 13px; line-height: 1.5; border-bottom: 1px solid #d0d0d0; background: #e0e0e0; }
+        .sidebar-header strong { color: #000; display: block; font-size: 14px; }
+        
+        .menu-list { list-style: none; padding: 0; margin: 0; width: 100%; }
+        .menu-item a { display: flex; align-items: center; padding: 12px 15px; text-decoration: none; color: white; font-weight: bold; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #000;
+            background: linear-gradient(to bottom, #3c3c3c 0%, #111111 100%); position: relative; }
+        .menu-item a:hover, .menu-item.active a { background: linear-gradient(to bottom, #555555 0%, #222222 100%); color: #fff; }
+        .menu-item a i { margin-right: 10px; font-size: 16px; width: 20px; text-align: center; color: #b5b5b5; }
+        .menu-item a .arrow { position: absolute; right: 15px; font-size: 10px; color: #888; }
+        
+        .main-container { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-navbar { height: 50px; background: linear-gradient(to bottom, #2b2b2b 0%, #111111 100%); display: flex; align-items: center; padding: 0 20px; }
+        .logo-text { font-size: 28px; font-weight: bold; font-style: italic; background: linear-gradient(to bottom, #4fa3ff, #9b51e0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .content { padding: 20px; overflow-y: auto; flex-grow: 1; }
+        .panel-card { background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .panel-header { background: linear-gradient(to bottom, #eaeaea 0%, #dcdcdc 100%); padding: 12px 15px; border-bottom: 1px solid #ccc; font-weight: bold; color: #333; display: flex; align-items: center; font-size: 14px; text-transform: uppercase; }
+        .panel-header i { margin-right: 8px; color: #555; }
+        .panel-body { padding: 15px; }
+
+        /* Form Layout */
+        .form-row { display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 200px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: bold; color: #333; }
+        .form-group input { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        .btn-submit { background: linear-gradient(to bottom, #4fa3ff, #0056b3); color: white; border: none; padding: 9px 20px; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 13px; height: 34px; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 13px; color: #333; }
+        th { background-color: #f5f5f5; border-bottom: 2px solid #ddd; padding: 10px; font-weight: bold; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        .alert-flash { padding: 12px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 15px; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            Welcome <strong>{{ session['username'] }} (Admin)</strong>
+            Agent Panel<br>
+            <span id="live-clock">--:--:--</span>
+        </div>
+                        <ul class="menu-list">
+            <li class="menu-item"><a href="{{ url_for('admin_payouts') }}"><i class="fa-solid fa-money-check-dollar"></i> Payout Management</a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_dashboard') }}"><i class="fa-solid fa-gauge"></i> Dashboard <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('agents_management') }}"><i class="fa-solid fa-users-gear"></i> Agents Manager <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_allocations') }}"><i class="fa-solid fa-network-wired"></i> Agent Allocations <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_stats') }}"><i class="fa-solid fa-chart-simple"></i> Agent Stats <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('admin_scudo_ranges') }}"><i class="fa-solid fa-mask"></i> Scudo Ranges <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('numbers_view') }}"><i class="fa-solid fa-phone"></i> Number Storage <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <li class="menu-item"><a href="{{ url_for('otps_view') }}"><i class="fa-solid fa-envelope-open-text"></i> OTP SMS Storage <i class="fa-solid fa-chevron-down arrow"></i></a></li>
+            <div class="menu-item"><a href="{{ url_for('admin_payouts') }}"><i class="fa-solid fa-money-check-dollar"></i> Payout Management</a></div>
+            <li class="menu-item" style="margin-top: 20px;"><a href="{{ url_for('logout') }}" style="background: linear-gradient(to bottom, #9b2226, #bb3e03);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+        </ul>
+    </div>
+
+    <div class="main-container">
+        <div class="top-navbar"><div class="logo-text">Aura</div></div>
+        
+        <div class="content">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}{% for msg in messages %}<div class="alert-flash">{{ msg }}</div>{% endfor %}{% endif %}
+            {% endwith %}
+
+            <div class="panel-card">
+                <div class="panel-header"><i class="fa-solid fa-user-plus"></i> Create New Agent</div>
+                <div class="panel-body">
+                    <form method="POST" class="form-row">
+                        <div class="form-group">
+                            <label>Agent Username</label>
+                            <input type="text" name="username" placeholder="Enter username..." required autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label>Agent Password</label>
+                            <input type="password" name="password" placeholder="Enter password..." required>
+                        </div>
+                        <button type="submit" class="btn-submit">Create Agent</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-header"><i class="fa-solid fa-list-ol"></i> Registered Active Agents</div>
+                <div class="panel-body">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Password Log</th>
+                                <th>Creation Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for agent in agents %}
+                            <tr>
+                                <td>{{ agent.id }}</td>
+                                <td><strong>{{ agent.username }}</strong></td>
+                                <td><code>{{ agent.password }}</code></td>
+                                <td>{{ agent.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" style="text-align: center; color: #999;">No user agents added yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            document.getElementById('live-clock').innerText = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        }
+        setInterval(updateClock, 1000); updateClock();
+    </script>
+</body>
+</html>
