@@ -11,18 +11,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.secret_key = "super-secret-session-key-change-this"
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.replace(
-        "postgres://",
-        "postgresql://",
-        1
-    )
-
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    DATABASE_URL or "sqlite:///database.db"
-)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -66,6 +55,16 @@ class OTPMessage(db.Model):
     message = db.Column(db.Text)
     payout = db.Column(db.String(20))
     unique_hash = db.Column(db.String(64), unique=True)
+
+class PayoutRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    agent_id = db.Column(db.Integer, db.ForeignKey('agent_user.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    wallet_address = db.Column(db.String(255), nullable=False)
+    status = db.Column(db.String(20), default='Pending')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    agent = db.relationship('AgentUser', backref=db.backref('payouts', lazy=True))
 
 # -------------------------------------------------------------------------
 # Background Worker Threads
@@ -336,25 +335,136 @@ def numbers_view():
         
     return render_template('numbers.html', pagination=SMSNumber.query.order_by(SMSNumber.id.desc()).paginate(page=request.args.get('page', 1, type=int), per_page=100))
 
-@app.route('/admin/otps')
+@app.route('/admin/otps', methods=['GET'])
 def otps_view():
-    if not session.get('logged_in') or session.get('role') != 'admin':
-        return redirect(url_for('login'))
-        
     page = request.args.get('page', 1, type=int)
-    pagination = db.session.query(
-        OTPMessage.timestamp,
-        OTPMessage.number,
-        OTPMessage.sender,
-        OTPMessage.message,
-        SMSNumber.num_range.label('num_range')
-    ).outerjoin(
-        SMSNumber, SMSNumber.phone_number == OTPMessage.number
-    ).order_by(
+
+    # 1. Fetch OTPs
+    pagination = OTPMessage.query.order_by(
         OTPMessage.timestamp.desc()
-    ).paginate(page=page, per_page=50, error_out=False)
-    
-    return render_template('otps.html', pagination=pagination)
+    ).paginate(page=page, per_page=15, error_out=False)
+
+    # 2. Build lookup structure
+    all_stored_numbers = SMSNumber.query.filter(
+        SMSNumber.phone_number != None
+    ).all()
+
+    lookup_list = []
+
+    for item in all_stored_numbers:
+        scudo = item.scudo_name if item.scudo_name else 'Unassigned'
+
+        actual_range = (
+            str(item.num_range).strip().replace(" ", "")
+            if item.num_range else ''
+        )
+
+        clean_num = (
+            str(item.phone_number).strip()
+            .replace("+", "")
+            .replace(" ", "")
+            .replace(".0", "")
+            if item.phone_number else ''
+        )
+
+        clean_range = (
+            str(item.num_range).strip()
+            .replace("+", "")
+            .replace(" ", "")
+            .replace(".0", "")
+            if item.num_range else ''
+        )
+
+        lookup_list.append({
+            'clean_num': clean_num,
+            'clean_range': clean_range,
+            'scudo_name': scudo,
+            'actual_range': actual_range
+        })
+
+    # Longest prefixes first
+    lookup_list.sort(
+        key=lambda x: max(
+            len(x['clean_num']),
+            len(x['clean_range'])
+        ),
+        reverse=True
+    )
+
+    # 3. Match OTPs
+    for otp in pagination.items:
+        otp.scudo_name = 'Unassigned'
+        otp.num_range = ''
+
+        if not otp.number:
+            continue
+
+        clean_otp_num = (
+            str(otp.number).strip()
+            .replace("+", "")
+            .replace(" ", "")
+            .replace(".0", "")
+        )
+
+        matched_meta = None
+
+        # PASS 1: Sliding prefix matching
+        for length in range(5, len(clean_otp_num) + 1):
+            test_prefix = clean_otp_num[:length]
+
+            for meta in lookup_list:
+                if (
+                    (meta['clean_num'] and (
+                        meta['clean_num'] == test_prefix or
+                        test_prefix.startswith(meta['clean_num']) or
+                        meta['clean_num'].startswith(test_prefix)
+                    ))
+                    or
+                    (meta['clean_range'] and (
+                        meta['clean_range'] == test_prefix or
+                        test_prefix.startswith(meta['clean_range']) or
+                        meta['clean_range'].startswith(test_prefix)
+                    ))
+                ):
+                    matched_meta = meta
+                    break
+
+            if matched_meta:
+                break
+
+        # PASS 2: Direct startswith
+        if not matched_meta:
+            for meta in lookup_list:
+                if (
+                    (meta['clean_num'] and clean_otp_num.startswith(meta['clean_num']))
+                    or
+                    (meta['clean_range'] and clean_otp_num.startswith(meta['clean_range']))
+                ):
+                    matched_meta = meta
+                    break
+
+        # PASS 3: Loose containment fallback
+        if not matched_meta:
+            for meta in lookup_list:
+                if (
+                    (meta['clean_num'] and meta['clean_num'] in clean_otp_num)
+                    or
+                    (meta['clean_range'] and meta['clean_range'] in clean_otp_num)
+                ):
+                    matched_meta = meta
+                    break
+
+        # Final assignment
+        if matched_meta:
+            otp.scudo_name = matched_meta['scudo_name']
+            otp.num_range = matched_meta['actual_range']
+
+    return render_template(
+        'otps_view.html',
+        pagination=pagination
+    )
+
+
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
@@ -430,6 +540,14 @@ def agent_my_numbers():
         
     pagination = query.order_by(SMSNumber.id.desc()).paginate(page=page, per_page=50, error_out=False)
     return render_template('agent_my_numbers.html', pagination=pagination, agent_allocated_ranges=agent_allocated_ranges)
+
+
+
+
+
+
+
+
 
 @app.route('/agents/clients', methods=['GET', 'POST'])
 def agent_clients():
@@ -602,6 +720,78 @@ def agent_unallocate_client(number_id):
     else:
         flash("This number is already unallocated.")
     return redirect(url_for('agent_my_numbers', page=request.args.get('page', 1, type=int)))
+# ==========================================
+# FIXED AGENT PAYOUT ENDPOINTS
+# ==========================================
+@app.route('/agent/request_payout', methods=['GET'])
+def agent_request_payout():
+    if session.get('role') != 'agent' or 'agent_id' not in session:
+        return redirect(url_for('login'))
+        
+    agent = AgentUser.query.get_or_404(session['agent_id'])
+    payout_history = PayoutRequest.query.filter_by(agent_id=agent.id).order_by(PayoutRequest.created_at.desc()).all()
+    return render_template('agent_request_payout.html', username=agent.username, history=payout_history)
+
+
+@app.route('/agent/submit_payout', methods=['POST'])
+def agent_submit_payout():
+    if session.get('role') != 'agent' or 'agent_id' not in session:
+        return redirect(url_for('login'))
+        
+    agent = AgentUser.query.get_or_404(session['agent_id'])
+    amount = request.form.get('amount')
+    wallet_address = request.form.get('wallet_address')
+    
+    if not amount or not wallet_address:
+        flash("All fields are required!", "danger")
+        return redirect(url_for('agent_request_payout'))
+        
+    try:
+        new_payout = PayoutRequest(
+            agent_id=agent.id,
+            amount=float(amount),
+            wallet_address=wallet_address.strip()
+        )
+        db.session.add(new_payout)
+        db.session.commit()
+        flash("Payout request submitted successfully!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash("Error processing payout request.", "danger")
+        
+    return redirect(url_for('agent_request_payout'))
+
+
+# ==========================================
+# FIXED ADMIN PAYOUT ENDPOINTS
+# ==========================================
+@app.route('/admin/payouts', methods=['GET'])
+def admin_payouts():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    pending_payouts = PayoutRequest.query.filter_by(status='Pending').order_by(PayoutRequest.created_at.asc()).all()
+    processed_payouts = PayoutRequest.query.filter(PayoutRequest.status != 'Pending').order_by(PayoutRequest.created_at.desc()).all()
+    return render_template('admin_payouts.html', pending=pending_payouts, processed=processed_payouts)
+
+
+@app.route('/admin/payouts/action/<int:payout_id>/<string:action>', methods=['POST'])
+def admin_payout_action(payout_id, action):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    payout = PayoutRequest.query.get_or_404(payout_id)
+    if payout.status == 'Pending':
+        if action == 'approve':
+            payout.status = 'Approved'
+            flash(f"Payout #{payout.id} approved successfully!", "success")
+        elif action == 'reject':
+            payout.status = 'Rejected'
+            flash(f"Payout #{payout.id} rejected.", "info")
+        db.session.commit()
+        
+    return redirect(url_for('admin_payouts'))
+
 
 @app.route('/agents/report')
 def agent_report():
